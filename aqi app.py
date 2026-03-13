@@ -237,29 +237,77 @@ elif step == 3:
         st.rerun()
 
 # -----------------------------
-# AQI MAP OF INDIA
+# REAL INDIA AQI MAP
 # -----------------------------
 
 st.markdown("---")
-st.subheader("India AQI Map")
+st.subheader("India AQI Pollution Heatmap")
+
+# city coordinates
+
+city_coords = {
+"Delhi": (28.6139,77.2090),
+"Mumbai": (19.0760,72.8777),
+"Ahmedabad": (23.0225,72.5714),
+"Bangalore": (12.9716,77.5946),
+"Chennai": (13.0827,80.2707),
+"Kolkata": (22.5726,88.3639),
+"Hyderabad": (17.3850,78.4867),
+"Pune": (18.5204,73.8567),
+"Jaipur": (26.9124,75.7873),
+"Lucknow": (26.8467,80.9462),
+"Chandigarh": (30.7333,76.7794),
+"Bhopal": (23.2599,77.4126),
+"Patna": (25.5941,85.1376),
+"Amaravati": (16.5062,80.6480)
+}
 
 city_avg = data.groupby("City")["AQI"].mean().reset_index()
 
-fig_map = go.Figure(data=go.Scattergeo(
-    lon = np.random.uniform(68,97,len(city_avg)),
-    lat = np.random.uniform(8,37,len(city_avg)),
-    text = city_avg["City"],
+lats = []
+lons = []
+aqi_vals = []
+cities = []
+
+for _,row in city_avg.iterrows():
+
+    city = row["City"]
+
+    if city in city_coords:
+
+        lat,lon = city_coords[city]
+
+        lats.append(lat)
+        lons.append(lon)
+        aqi_vals.append(row["AQI"])
+        cities.append(city)
+
+fig_map = go.Figure(go.Scattergeo(
+
+    lat = lats,
+    lon = lons,
+    text = cities,
     marker=dict(
-        size=10,
-        color=city_avg["AQI"],
+        size=12,
+        color=aqi_vals,
         colorscale="Reds",
-        colorbar_title="AQI"
+        colorbar_title="AQI",
+        line=dict(width=1,color="black")
     )
+
 ))
 
 fig_map.update_layout(
-    geo_scope='asia',
-    title="Pollution Distribution Across Cities"
+
+    title="Air Pollution Distribution Across Indian Cities",
+
+    geo=dict(
+        scope="asia",
+        showcountries=True,
+        showland=True,
+        landcolor="rgb(217,217,217)"
+    )
+
 )
 
 st.plotly_chart(fig_map,use_container_width=True)
