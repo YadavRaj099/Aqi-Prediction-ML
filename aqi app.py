@@ -7,14 +7,14 @@ from sklearn.ensemble import RandomForestRegressor
 st.set_page_config(page_title="AI AQI Predictor", layout="wide")
 
 # -----------------------------
-# CUSTOM UI STYLE
+# BACKGROUND STYLE
 # -----------------------------
 
 st.markdown("""
 <style>
 
 .stApp{
-background-image:url("https://images.unsplash.com/photo-1509395176047-4a66953fd231");
+background-image:url("https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc");
 background-size:cover;
 background-attachment:fixed;
 }
@@ -29,10 +29,6 @@ h1,h2,h3{
 color:white;
 }
 
-[data-testid="stMetricValue"]{
-font-size:28px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -41,10 +37,7 @@ font-size:28px;
 # -----------------------------
 
 st.title("🌍 AI Air Quality Predictor")
-
-st.caption(
-"Predict Air Quality Index using machine learning and pollutant levels."
-)
+st.caption("Predict Air Quality Index using machine learning and pollutant levels.")
 
 st.info(
 "This tool predicts AQI using environmental pollutant inputs. Educational use only."
@@ -78,7 +71,6 @@ X = data[features]
 y = data["AQI"]
 
 model = RandomForestRegressor()
-
 model.fit(X,y)
 
 # -----------------------------
@@ -123,25 +115,15 @@ elif step == 2:
 
     with col1:
 
-        pm25 = st.number_input(
-        "PM2.5",0.0,1000.0,50.0)
-
-        pm10 = st.number_input(
-        "PM10",0.0,1000.0,80.0)
-
-        no2 = st.number_input(
-        "NO2",0.0,500.0,20.0)
+        pm25 = st.number_input("PM2.5",0.0,1000.0,50.0)
+        pm10 = st.number_input("PM10",0.0,1000.0,80.0)
+        no2 = st.number_input("NO2",0.0,500.0,20.0)
 
     with col2:
 
-        so2 = st.number_input(
-        "SO2",0.0,500.0,10.0)
-
-        co = st.number_input(
-        "CO",0.0,10.0,0.8)
-
-        o3 = st.number_input(
-        "O3",0.0,500.0,30.0)
+        so2 = st.number_input("SO2",0.0,500.0,10.0)
+        co = st.number_input("CO",0.0,10.0,0.8)
+        o3 = st.number_input("O3",0.0,500.0,30.0)
 
     st.session_state.pm25 = pm25
     st.session_state.pm10 = pm10
@@ -194,34 +176,22 @@ elif step == 3:
     ]])
 
     prediction = model.predict(input_data)[0]
-
     prediction = round(prediction,2)
 
 # category
 
     if prediction <= 50:
         category="Good"
-        color="green"
-
     elif prediction <= 100:
         category="Satisfactory"
-        color="yellow"
-
     elif prediction <= 200:
         category="Moderate"
-        color="orange"
-
     elif prediction <= 300:
         category="Poor"
-        color="red"
-
     elif prediction <= 400:
         category="Very Poor"
-        color="purple"
-
     else:
         category="Severe"
-        color="maroon"
 
 # score cards
 
@@ -233,26 +203,18 @@ elif step == 3:
 # gauge meter
 
     fig = go.Figure(go.Indicator(
-
         mode="gauge+number",
-
         value=prediction,
-
         title={'text':"AQI Level"},
-
         gauge={
-
         'axis':{'range':[0,500]},
-
         'steps':[
-
         {'range':[0,50],'color':"#00e400"},
         {'range':[50,100],'color':"#ffff00"},
         {'range':[100,200],'color':"#ff7e00"},
         {'range':[200,300],'color':"#ff0000"},
         {'range':[300,400],'color':"#8f3f97"},
         {'range':[400,500],'color':"#7e0023"}
-
         ]
         }
     ))
@@ -265,27 +227,92 @@ elif step == 3:
 
     if prediction < 100:
         st.success("Air quality is acceptable.")
-
     elif prediction < 200:
-        st.warning(
-        "Sensitive individuals should limit outdoor activity."
-        )
-
+        st.warning("Sensitive individuals should limit outdoor activity.")
     else:
-        st.error(
-        "Avoid prolonged outdoor exposure."
-        )
+        st.error("Avoid prolonged outdoor exposure.")
 
     if st.button("Restart"):
         st.session_state.step=1
         st.rerun()
 
 # -----------------------------
+# AQI MAP OF INDIA
+# -----------------------------
+
+st.markdown("---")
+st.subheader("India AQI Map")
+
+city_avg = data.groupby("City")["AQI"].mean().reset_index()
+
+fig_map = go.Figure(data=go.Scattergeo(
+    lon = np.random.uniform(68,97,len(city_avg)),
+    lat = np.random.uniform(8,37,len(city_avg)),
+    text = city_avg["City"],
+    marker=dict(
+        size=10,
+        color=city_avg["AQI"],
+        colorscale="Reds",
+        colorbar_title="AQI"
+    )
+))
+
+fig_map.update_layout(
+    geo_scope='asia',
+    title="Pollution Distribution Across Cities"
+)
+
+st.plotly_chart(fig_map,use_container_width=True)
+
+# -----------------------------
+# POLLUTION TREND GRAPH
+# -----------------------------
+
+st.markdown("---")
+st.subheader("Pollution Trend Analysis")
+
+pollutant = st.selectbox(
+"Select pollutant",
+["PM2.5","PM10","NO2","SO2","CO","O3"]
+)
+
+trend = data.groupby("Date")[pollutant].mean()
+
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=trend.index,
+    y=trend.values,
+    mode="lines"
+))
+
+fig.update_layout(
+    title=f"{pollutant} Trend Over Time",
+    xaxis_title="Date",
+    yaxis_title="Concentration"
+)
+
+st.plotly_chart(fig,use_container_width=True)
+
+# -----------------------------
+# CITY POLLUTION LEADERBOARD
+# -----------------------------
+
+st.markdown("---")
+st.subheader("Most Polluted Cities")
+
+city_rank = data.groupby("City")["AQI"].mean().sort_values(ascending=False).head(10)
+
+leaderboard = city_rank.reset_index()
+
+st.dataframe(
+leaderboard,
+use_container_width=True
+)
+
+# -----------------------------
 # FOOTER
 # -----------------------------
 
 st.markdown("---")
-
-st.caption(
-"AI AQI Predictor • Environmental Machine Learning Project"
-)
+st.caption("AI AQI Predictor • Environmental Machine Learning Project")
