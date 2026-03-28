@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
+from sklearn.model_selection import train_test_split
 
 # =====================================================
 # CONFIG
@@ -27,7 +28,6 @@ body { background: #020617; }
     border-radius: 18px;
     border: 1px solid #1e293b;
     margin-bottom: 20px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.4);
 }
 
 h1, h2, h3 { color: white; }
@@ -39,12 +39,6 @@ h1, h2, h3 { color: white; }
     border-radius: 12px;
     font-weight: bold;
     display: inline-block;
-}
-
-.stButton>button {
-    border-radius: 10px;
-    height: 45px;
-    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -76,8 +70,10 @@ def load_data():
 with st.spinner("Loading data..."):
     data = load_data()
 
+st.success(f"📍 Available Cities: {data['City'].nunique()}")
+
 # =====================================================
-# MODEL
+# MODEL (REAL TRAIN/TEST SPLIT)
 # =====================================================
 
 @st.cache_resource
@@ -92,20 +88,18 @@ def train_model(data):
     X = data[features]
     y = data["AQI"]
 
-    model = RandomForestRegressor()
-    model.fit(X, y)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    return model, X, y
+    model = RandomForestRegressor()
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    score = r2_score(y_test, y_pred)
+
+    return model, score
 
 with st.spinner("Training model..."):
-    model, X, y = train_model(data)
-
-# =====================================================
-# MODEL PERFORMANCE
-# =====================================================
-
-y_pred = model.predict(X)
-score = r2_score(y, y_pred)
+    model, score = train_model(data)
 
 st.success(f"Model Accuracy (R² Score): {round(score, 2)}")
 
@@ -122,13 +116,23 @@ st.write("""
 """)
 
 # =====================================================
+# IMPACT
+# =====================================================
+
+st.markdown("### 🌍 Impact")
+st.write("""
+This system helps individuals and authorities monitor air quality 
+and take preventive actions to reduce health risks.
+""")
+
+# =====================================================
 # TABS
 # =====================================================
 
 tab1, tab2 = st.tabs(["🔮 Predictor", "📊 Analytics"])
 
 # =====================================================
-# PREDICTOR TAB
+# PREDICTOR
 # =====================================================
 
 with tab1:
@@ -140,36 +144,48 @@ with tab1:
 
     if st.session_state.step == 1:
 
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-
         st.subheader("📍 Select Location")
 
         city = st.selectbox("City", sorted(data["City"].unique()))
         st.session_state.city = city
 
+        # Latest AQI
+        latest = data[data["City"] == city].sort_values("Date").iloc[-1]
+        st.metric("Latest AQI", round(latest["AQI"], 2))
+
         if st.button("Next →", use_container_width=True):
             st.session_state.step = 2
             st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
     elif st.session_state.step == 2:
-
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
 
         st.subheader("🧪 Enter Pollution Levels")
 
+        # AUTO-FILL BUTTON
+        if st.button("Use Real Data"):
+            city_data = data[data["City"] == st.session_state.city].iloc[-1]
+            st.session_state.inputs = [
+                city_data["PM2.5"],
+                city_data["PM10"],
+                city_data["NO2"],
+                city_data["SO2"],
+                city_data["CO"],
+                city_data["O3"]
+            ]
+
         col1, col2 = st.columns(2)
 
+        defaults = st.session_state.get("inputs", [50,80,20,10,0.8,30])
+
         with col1:
-            pm25 = st.number_input("PM2.5", 0.0, 1000.0, 50.0)
-            pm10 = st.number_input("PM10", 0.0, 1000.0, 80.0)
-            no2 = st.number_input("NO2", 0.0, 500.0, 20.0)
+            pm25 = st.number_input("PM2.5", 0.0, 1000.0, float(defaults[0]))
+            pm10 = st.number_input("PM10", 0.0, 1000.0, float(defaults[1]))
+            no2 = st.number_input("NO2", 0.0, 500.0, float(defaults[2]))
 
         with col2:
-            so2 = st.number_input("SO2", 0.0, 500.0, 10.0)
-            co = st.number_input("CO", 0.0, 10.0, 0.8)
-            o3 = st.number_input("O3", 0.0, 500.0, 30.0)
+            so2 = st.number_input("SO2", 0.0, 500.0, float(defaults[3]))
+            co = st.number_input("CO", 0.0, 10.0, float(defaults[4]))
+            o3 = st.number_input("O3", 0.0, 500.0, float(defaults[5]))
 
         st.session_state.inputs = [pm25, pm10, no2, so2, co, o3]
 
@@ -185,11 +201,7 @@ with tab1:
                 st.session_state.step = 3
                 st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
     elif st.session_state.step == 3:
-
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
 
         st.subheader("📊 AQI Prediction")
 
@@ -230,17 +242,7 @@ with tab1:
                 fig = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=prediction,
-                    gauge={
-                        'axis': {'range': [0, 500]},
-                        'steps': [
-                            {'range': [0, 50], 'color': "#00e400"},
-                            {'range': [50, 100], 'color': "#ffff00"},
-                            {'range': [100, 200], 'color': "#ff7e00"},
-                            {'range': [200, 300], 'color': "#ff0000"},
-                            {'range': [300, 400], 'color': "#8f3f97"},
-                            {'range': [400, 500], 'color': "#7e0023"}
-                        ]
-                    }
+                    gauge={'axis': {'range': [0, 500]}}
                 ))
 
                 st.plotly_chart(fig, use_container_width=True)
@@ -261,57 +263,17 @@ with tab1:
             st.session_state.step = 1
             st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
 # =====================================================
-# ANALYTICS TAB
+# ANALYTICS
 # =====================================================
 
 with tab2:
 
     st.subheader("India AQI Pollution Heatmap")
 
-    city_coords = {
-        "Delhi": (28.6139,77.2090),
-        "Mumbai": (19.0760,72.8777),
-        "Ahmedabad": (23.0225,72.5714),
-        "Bangalore": (12.9716,77.5946),
-        "Chennai": (13.0827,80.2707),
-        "Kolkata": (22.5726,88.3639),
-        "Hyderabad": (17.3850,78.4867),
-        "Pune": (18.5204,73.8567),
-        "Jaipur": (26.9124,75.7873),
-        "Lucknow": (26.8467,80.9462),
-        "Chandigarh": (30.7333,76.7794),
-        "Bhopal": (23.2599,77.4126),
-        "Patna": (25.5941,85.1376),
-        "Amaravati": (16.5062,80.6480)
-    }
-
     city_avg = data.groupby("City")["AQI"].mean().reset_index()
 
-    lats, lons, aqi_vals, cities = [], [], [], []
-
-    for _, row in city_avg.iterrows():
-        if row["City"] in city_coords:
-            lat, lon = city_coords[row["City"]]
-            lats.append(lat)
-            lons.append(lon)
-            aqi_vals.append(row["AQI"])
-            cities.append(row["City"])
-
-    fig_map = go.Figure(go.Scattergeo(
-        lat=lats,
-        lon=lons,
-        text=cities,
-        marker=dict(size=12, color=aqi_vals, colorscale="Reds")
-    ))
-
-    fig_map.update_layout(
-        geo=dict(scope="asia", projection_scale=3)
-    )
-
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.dataframe(city_avg)
 
     st.subheader("Pollution Trend Analysis")
 
