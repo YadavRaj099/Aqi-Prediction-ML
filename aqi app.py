@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score
 
 # =====================================================
 # CONFIG
@@ -11,21 +12,15 @@ from sklearn.ensemble import RandomForestRegressor
 st.set_page_config(page_title="AQI Predictor", layout="wide")
 
 # =====================================================
-# STYLES (UPGRADED UI)
+# STYLES
 # =====================================================
 
 st.markdown("""
 <style>
+body { background: #020617; }
 
-body {
-    background: #020617;
-}
+.block-container { padding: 2rem; }
 
-.block-container {
-    padding: 2rem;
-}
-
-/* Card UI */
 .card {
     background: linear-gradient(180deg,#0f172a,#020617);
     padding: 30px;
@@ -35,33 +30,22 @@ body {
     box-shadow: 0 0 20px rgba(0,0,0,0.4);
 }
 
-/* Headings */
-h1, h2, h3 {
-    color: white;
-}
+h1, h2, h3 { color: white; }
 
-/* Subtitle */
-.subtitle {
-    color: #94a3b8;
-    font-size: 16px;
-}
+.subtitle { color: #94a3b8; }
 
-/* Badge */
 .badge {
     padding: 12px 18px;
     border-radius: 12px;
     font-weight: bold;
     display: inline-block;
-    font-size: 16px;
 }
 
-/* Buttons */
 .stButton>button {
     border-radius: 10px;
     height: 45px;
     font-weight: bold;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -77,8 +61,6 @@ Predict Air Quality Index using machine learning and pollutant levels.
 """, unsafe_allow_html=True)
 
 st.info("Model Used: Random Forest Regressor • Dataset: City AQI Data")
-
-st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # =====================================================
 # LOAD DATA
@@ -113,10 +95,31 @@ def train_model(data):
     model = RandomForestRegressor()
     model.fit(X, y)
 
-    return model
+    return model, X, y
 
 with st.spinner("Training model..."):
-    model = train_model(data)
+    model, X, y = train_model(data)
+
+# =====================================================
+# MODEL PERFORMANCE
+# =====================================================
+
+y_pred = model.predict(X)
+score = r2_score(y, y_pred)
+
+st.success(f"Model Accuracy (R² Score): {round(score, 2)}")
+
+# =====================================================
+# HOW IT WORKS
+# =====================================================
+
+st.markdown("### ⚙️ How it Works")
+st.write("""
+- Uses Random Forest Regressor  
+- Trained on historical AQI dataset  
+- Predicts AQI based on pollutant levels  
+- Provides health advisory based on predicted AQI  
+""")
 
 # =====================================================
 # TABS
@@ -135,18 +138,13 @@ with tab1:
 
     st.progress(st.session_state.step / 3)
 
-    # ---------------- STEP 1 ----------------
     if st.session_state.step == 1:
 
         st.markdown("<div class='card'>", unsafe_allow_html=True)
 
         st.subheader("📍 Select Location")
 
-        city = st.selectbox(
-            "City",
-            sorted(data["City"].unique())
-        )
-
+        city = st.selectbox("City", sorted(data["City"].unique()))
         st.session_state.city = city
 
         if st.button("Next →", use_container_width=True):
@@ -155,7 +153,6 @@ with tab1:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------------- STEP 2 ----------------
     elif st.session_state.step == 2:
 
         st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -190,7 +187,6 @@ with tab1:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------------- STEP 3 ----------------
     elif st.session_state.step == 3:
 
         st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -204,63 +200,62 @@ with tab1:
             co, so2, o3, 1, 2, 1
         ]])
 
-        try:
-            prediction = round(model.predict(input_data)[0], 2)
-            st.success("Prediction generated successfully!")
+        with st.spinner("Predicting AQI..."):
+            try:
+                prediction = round(model.predict(input_data)[0], 2)
 
-            # CATEGORY
-            if prediction <= 50:
-                category, color = "Good", "#00e400"
-            elif prediction <= 100:
-                category, color = "Satisfactory", "#ffff00"
-            elif prediction <= 200:
-                category, color = "Moderate", "#ff7e00"
-            elif prediction <= 300:
-                category, color = "Poor", "#ff0000"
-            elif prediction <= 400:
-                category, color = "Very Poor", "#8f3f97"
-            else:
-                category, color = "Severe", "#7e0023"
+                st.success("Prediction generated successfully!")
 
-            col1, col2 = st.columns(2)
+                if prediction <= 50:
+                    category, color = "Good", "#00e400"
+                elif prediction <= 100:
+                    category, color = "Satisfactory", "#ffff00"
+                elif prediction <= 200:
+                    category, color = "Moderate", "#ff7e00"
+                elif prediction <= 300:
+                    category, color = "Poor", "#ff0000"
+                elif prediction <= 400:
+                    category, color = "Very Poor", "#8f3f97"
+                else:
+                    category, color = "Severe", "#7e0023"
 
-            col1.metric("AQI", prediction)
-            col2.markdown(
-                f"<div class='badge' style='background:{color};color:black'>{category}</div>",
-                unsafe_allow_html=True
-            )
+                col1, col2 = st.columns(2)
 
-            # GAUGE (UPGRADED)
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=prediction,
-                gauge={
-                    'axis': {'range': [0, 500]},
-                    'steps': [
-                        {'range': [0, 50], 'color': "#00e400"},
-                        {'range': [50, 100], 'color': "#ffff00"},
-                        {'range': [100, 200], 'color': "#ff7e00"},
-                        {'range': [200, 300], 'color': "#ff0000"},
-                        {'range': [300, 400], 'color': "#8f3f97"},
-                        {'range': [400, 500], 'color': "#7e0023"}
-                    ]
-                }
-            ))
+                col1.metric("AQI", prediction)
+                col2.markdown(
+                    f"<div class='badge' style='background:{color};color:black'>{category}</div>",
+                    unsafe_allow_html=True
+                )
 
-            st.plotly_chart(fig, use_container_width=True)
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=prediction,
+                    gauge={
+                        'axis': {'range': [0, 500]},
+                        'steps': [
+                            {'range': [0, 50], 'color': "#00e400"},
+                            {'range': [50, 100], 'color': "#ffff00"},
+                            {'range': [100, 200], 'color': "#ff7e00"},
+                            {'range': [200, 300], 'color': "#ff0000"},
+                            {'range': [300, 400], 'color': "#8f3f97"},
+                            {'range': [400, 500], 'color': "#7e0023"}
+                        ]
+                    }
+                ))
 
-            # ADVISORY
-            st.subheader("Health Advisory")
+                st.plotly_chart(fig, use_container_width=True)
 
-            if prediction < 100:
-                st.success("Air quality is acceptable. Enjoy your day!")
-            elif prediction < 200:
-                st.warning("Sensitive individuals should limit outdoor activity.")
-            else:
-                st.error("Avoid prolonged exposure. Consider wearing a mask.")
+                st.subheader("Health Advisory")
 
-        except:
-            st.error("Prediction failed. Please check your inputs.")
+                if prediction < 100:
+                    st.success("Air quality is acceptable.")
+                elif prediction < 200:
+                    st.warning("Sensitive individuals should limit outdoor activity.")
+                else:
+                    st.error("Avoid prolonged exposure.")
+
+            except:
+                st.error("Prediction failed.")
 
         if st.button("Restart", use_container_width=True):
             st.session_state.step = 1
@@ -309,24 +304,19 @@ with tab2:
         lat=lats,
         lon=lons,
         text=cities,
-        marker=dict(
-            size=12,
-            color=aqi_vals,
-            colorscale="Reds",
-            colorbar_title="AQI"
-        )
+        marker=dict(size=12, color=aqi_vals, colorscale="Reds")
     ))
 
-    fig_map.update_layout(geo=dict(scope="asia"))
+    fig_map.update_layout(
+        geo=dict(scope="asia", projection_scale=3)
+    )
 
     st.plotly_chart(fig_map, use_container_width=True)
 
     st.subheader("Pollution Trend Analysis")
 
-    pollutant = st.selectbox(
-        "Select pollutant",
-        ["PM2.5","PM10","NO2","SO2","CO","O3"]
-    )
+    pollutant = st.selectbox("Select pollutant",
+        ["PM2.5","PM10","NO2","SO2","CO","O3"])
 
     trend = data.groupby("Date")[pollutant].mean()
 
