@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 st.set_page_config(page_title="AQI Predictor", layout="wide")
 
 # =====================================================
-# STYLES
+# STYLES (UPGRADED UI)
 # =====================================================
 
 st.markdown("""
@@ -28,25 +28,38 @@ body {
 /* Card UI */
 .card {
     background: linear-gradient(180deg,#0f172a,#020617);
-    padding: 25px;
-    border-radius: 16px;
+    padding: 30px;
+    border-radius: 18px;
     border: 1px solid #1e293b;
     margin-bottom: 20px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
 }
 
+/* Headings */
 h1, h2, h3 {
     color: white;
 }
 
+/* Subtitle */
 .subtitle {
     color: #94a3b8;
+    font-size: 16px;
 }
 
+/* Badge */
 .badge {
-    padding: 10px 16px;
-    border-radius: 10px;
+    padding: 12px 18px;
+    border-radius: 12px;
     font-weight: bold;
     display: inline-block;
+    font-size: 16px;
+}
+
+/* Buttons */
+.stButton>button {
+    border-radius: 10px;
+    height: 45px;
+    font-weight: bold;
 }
 
 </style>
@@ -63,6 +76,8 @@ Predict Air Quality Index using machine learning and pollutant levels.
 </p>
 """, unsafe_allow_html=True)
 
+st.info("Model Used: Random Forest Regressor • Dataset: City AQI Data")
+
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # =====================================================
@@ -76,7 +91,8 @@ def load_data():
     df["Date"] = pd.to_datetime(df["Date"])
     return df
 
-data = load_data()
+with st.spinner("Loading data..."):
+    data = load_data()
 
 # =====================================================
 # MODEL
@@ -99,7 +115,8 @@ def train_model(data):
 
     return model
 
-model = train_model(data)
+with st.spinner("Training model..."):
+    model = train_model(data)
 
 # =====================================================
 # TABS
@@ -187,48 +204,63 @@ with tab1:
             co, so2, o3, 1, 2, 1
         ]])
 
-        prediction = round(model.predict(input_data)[0], 2)
+        try:
+            prediction = round(model.predict(input_data)[0], 2)
+            st.success("Prediction generated successfully!")
 
-        # CATEGORY
-        if prediction <= 50:
-            category, color = "Good", "#00e400"
-        elif prediction <= 100:
-            category, color = "Satisfactory", "#ffff00"
-        elif prediction <= 200:
-            category, color = "Moderate", "#ff7e00"
-        elif prediction <= 300:
-            category, color = "Poor", "#ff0000"
-        elif prediction <= 400:
-            category, color = "Very Poor", "#8f3f97"
-        else:
-            category, color = "Severe", "#7e0023"
+            # CATEGORY
+            if prediction <= 50:
+                category, color = "Good", "#00e400"
+            elif prediction <= 100:
+                category, color = "Satisfactory", "#ffff00"
+            elif prediction <= 200:
+                category, color = "Moderate", "#ff7e00"
+            elif prediction <= 300:
+                category, color = "Poor", "#ff0000"
+            elif prediction <= 400:
+                category, color = "Very Poor", "#8f3f97"
+            else:
+                category, color = "Severe", "#7e0023"
 
-        col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2)
 
-        col1.metric("AQI", prediction)
-        col2.markdown(
-            f"<div class='badge' style='background:{color};color:black'>{category}</div>",
-            unsafe_allow_html=True
-        )
+            col1.metric("AQI", prediction)
+            col2.markdown(
+                f"<div class='badge' style='background:{color};color:black'>{category}</div>",
+                unsafe_allow_html=True
+            )
 
-        # GAUGE
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=prediction,
-            gauge={'axis': {'range': [0, 500]}}
-        ))
+            # GAUGE (UPGRADED)
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=prediction,
+                gauge={
+                    'axis': {'range': [0, 500]},
+                    'steps': [
+                        {'range': [0, 50], 'color': "#00e400"},
+                        {'range': [50, 100], 'color': "#ffff00"},
+                        {'range': [100, 200], 'color': "#ff7e00"},
+                        {'range': [200, 300], 'color': "#ff0000"},
+                        {'range': [300, 400], 'color': "#8f3f97"},
+                        {'range': [400, 500], 'color': "#7e0023"}
+                    ]
+                }
+            ))
 
-        st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
-        # ADVISORY
-        st.subheader("Health Advisory")
+            # ADVISORY
+            st.subheader("Health Advisory")
 
-        if prediction < 100:
-            st.success("Air quality is acceptable.")
-        elif prediction < 200:
-            st.warning("Sensitive individuals should limit outdoor activity.")
-        else:
-            st.error("Avoid prolonged exposure.")
+            if prediction < 100:
+                st.success("Air quality is acceptable. Enjoy your day!")
+            elif prediction < 200:
+                st.warning("Sensitive individuals should limit outdoor activity.")
+            else:
+                st.error("Avoid prolonged exposure. Consider wearing a mask.")
+
+        except:
+            st.error("Prediction failed. Please check your inputs.")
 
         if st.button("Restart", use_container_width=True):
             st.session_state.step = 1
@@ -241,8 +273,6 @@ with tab1:
 # =====================================================
 
 with tab2:
-
-    # ---------------- HEATMAP ----------------
 
     st.subheader("India AQI Pollution Heatmap")
 
@@ -291,8 +321,6 @@ with tab2:
 
     st.plotly_chart(fig_map, use_container_width=True)
 
-    # ---------------- TREND ----------------
-
     st.subheader("Pollution Trend Analysis")
 
     pollutant = st.selectbox(
@@ -306,8 +334,6 @@ with tab2:
     fig.add_trace(go.Scatter(x=trend.index, y=trend.values))
 
     st.plotly_chart(fig, use_container_width=True)
-
-    # ---------------- LEADERBOARD ----------------
 
     st.subheader("Most Polluted Cities")
 
