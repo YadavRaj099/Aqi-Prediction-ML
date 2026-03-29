@@ -14,34 +14,63 @@ from sklearn.model_selection import train_test_split
 st.set_page_config(page_title="AQI Predictor", layout="wide")
 
 # =====================================================
-# STYLES
+# STYLES (FIXED SIDEBAR + UI)
 # =====================================================
 
 st.markdown("""
 <style>
+
+/* Main background */
 body { background: #020617; }
 
-.block-container { padding: 2rem; }
-
-.badge {
-    padding: 12px 18px;
-    border-radius: 12px;
-    font-weight: bold;
-    display: inline-block;
+/* Sidebar full styling */
+section[data-testid="stSidebar"] {
+    background: #020617;
+    border-right: 1px solid #1e293b;
+    padding-top: 20px;
 }
 
+/* Sidebar title */
+.sidebar-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #38bdf8;
+    margin-bottom: 10px;
+}
+
+/* Sidebar buttons */
 div.stButton > button {
-    background: linear-gradient(135deg,#1e293b,#020617);
+    width: 100%;
+    background: linear-gradient(135deg,#0f172a,#020617);
     border: 1px solid #334155;
-    border-radius: 10px;
+    border-radius: 12px;
     color: white;
+    padding: 10px;
+    margin-bottom: 10px;
     font-weight: 600;
+    transition: 0.3s;
 }
 
 div.stButton > button:hover {
     background: #0ea5e9;
     color: black;
 }
+
+/* Active button */
+.active-btn {
+    background: #0ea5e9 !important;
+    color: black !important;
+}
+
+/* Metric box */
+.info-box {
+    background: linear-gradient(135deg,#1e293b,#020617);
+    padding:20px;
+    border-radius:12px;
+    border:1px solid #334155;
+    margin-bottom:20px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -64,19 +93,30 @@ def get_human_state(aqi):
         return "🚑", "Emergency / ICU Risk", "#7f1d1d"
 
 # =====================================================
-# SIDEBAR
+# SIDEBAR NAVIGATION (FIXED)
 # =====================================================
+
+st.sidebar.markdown('<div class="sidebar-title">🌍 AI AQI App</div>', unsafe_allow_html=True)
+st.sidebar.markdown("---")
 
 if "page" not in st.session_state:
     st.session_state.page = "Predictor"
 
-col1, col2 = st.sidebar.columns(2)
+# Buttons
+predictor_btn = st.sidebar.button("🔮 Predictor")
+analytics_btn = st.sidebar.button("📊 Analytics")
 
-if col1.button("🔮 Predictor"):
+if predictor_btn:
     st.session_state.page = "Predictor"
 
-if col2.button("📊 Analytics"):
+if analytics_btn:
     st.session_state.page = "Analytics"
+
+# Current page indicator
+st.sidebar.markdown("---")
+st.sidebar.markdown(f"### 👉 Current: {st.session_state.page}")
+st.sidebar.markdown("---")
+st.sidebar.success("✨ AI Powered System")
 
 page = st.session_state.page
 
@@ -99,6 +139,7 @@ data = load_data()
 
 @st.cache_resource
 def train_model(data):
+
     features = [
         "PM2.5","PM10","NO","NO2","NOx",
         "NH3","CO","SO2","O3","Benzene",
@@ -123,18 +164,26 @@ model, score = train_model(data)
 # =====================================================
 
 st.title("🌍 AI Air Quality Predictor")
-st.caption(f"Model Accuracy (R²): {round(score,2)}")
+
+st.markdown(f"""
+<div class="info-box">
+<b>Model:</b> Random Forest Regressor<br>
+<b>Accuracy (R²):</b> {round(score,2)}<br>
+<b>Cities:</b> {data['City'].nunique()}
+</div>
+""", unsafe_allow_html=True)
 
 # =====================================================
-# PREDICTOR
+# PREDICTOR PAGE
 # =====================================================
 
 if page == "Predictor":
 
     st.subheader("📍 Select City")
+
     city = st.selectbox("City", sorted(data["City"].unique()))
 
-    st.subheader("🧪 Enter Pollution Levels")
+    st.subheader("🧪 Pollution Levels")
 
     pm25 = st.number_input("PM2.5", 0.0, 1000.0, 50.0)
     pm10 = st.number_input("PM10", 0.0, 1000.0, 80.0)
@@ -170,12 +219,12 @@ if page == "Predictor":
         st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
-# ANALYTICS
+# ANALYTICS PAGE
 # =====================================================
 
 elif page == "Analytics":
 
-    st.subheader("👤 Human Impact Analyzer")
+    st.subheader("👤 AQI Impact Simulator")
 
     aqi_input = st.slider("AQI Level", 0, 500, 100)
 
