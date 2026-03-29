@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
@@ -14,61 +13,65 @@ from sklearn.model_selection import train_test_split
 st.set_page_config(page_title="AQI Predictor", layout="wide")
 
 # =====================================================
-# STYLES (FIXED SIDEBAR + UI)
+# GLOBAL STYLES (FIXED SIDEBAR WIDTH)
 # =====================================================
 
 st.markdown("""
 <style>
 
+/* Sidebar width FIX */
+section[data-testid="stSidebar"] {
+    min-width: 240px !important;
+    max-width: 240px !important;
+    background: #020617;
+    border-right: 1px solid #1e293b;
+}
+
+/* Fix content shift */
+section[data-testid="stSidebar"] > div {
+    width: 240px;
+}
+
 /* Main background */
 body { background: #020617; }
 
-/* Sidebar full styling */
-section[data-testid="stSidebar"] {
-    background: #020617;
-    border-right: 1px solid #1e293b;
-    padding-top: 20px;
-}
-
-/* Sidebar title */
-.sidebar-title {
-    font-size: 20px;
-    font-weight: bold;
-    color: #38bdf8;
-    margin-bottom: 10px;
-}
+/* Titles */
+h1, h2, h3 { color: white; }
 
 /* Sidebar buttons */
 div.stButton > button {
     width: 100%;
     background: linear-gradient(135deg,#0f172a,#020617);
     border: 1px solid #334155;
-    border-radius: 12px;
+    border-radius: 14px;
     color: white;
-    padding: 10px;
-    margin-bottom: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
     font-weight: 600;
-    transition: 0.3s;
+    transition: all 0.3s ease;
 }
 
 div.stButton > button:hover {
     background: #0ea5e9;
     color: black;
+    transform: scale(1.02);
 }
 
-/* Active button */
-.active-btn {
-    background: #0ea5e9 !important;
-    color: black !important;
-}
-
-/* Metric box */
+/* Info card */
 .info-box {
     background: linear-gradient(135deg,#1e293b,#020617);
     padding:20px;
-    border-radius:12px;
+    border-radius:14px;
     border:1px solid #334155;
     margin-bottom:20px;
+}
+
+/* AQI badge */
+.badge {
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-weight: bold;
+    text-align:center;
 }
 
 </style>
@@ -82,7 +85,7 @@ def get_human_state(aqi):
     if aqi <= 50:
         return "😊", "Healthy", "#22c55e"
     elif aqi <= 100:
-        return "🙂", "Slightly Affected", "#eab308"
+        return "🙂", "Normal", "#eab308"
     elif aqi <= 200:
         return "😷", "Mask Recommended", "#f97316"
     elif aqi <= 300:
@@ -93,28 +96,23 @@ def get_human_state(aqi):
         return "🚑", "Emergency / ICU Risk", "#7f1d1d"
 
 # =====================================================
-# SIDEBAR NAVIGATION (FIXED)
+# SIDEBAR (FIXED WIDTH NAV)
 # =====================================================
 
-st.sidebar.markdown('<div class="sidebar-title">🌍 AI AQI App</div>', unsafe_allow_html=True)
+st.sidebar.markdown("## 🌍 AI AQI App")
 st.sidebar.markdown("---")
 
 if "page" not in st.session_state:
     st.session_state.page = "Predictor"
 
-# Buttons
-predictor_btn = st.sidebar.button("🔮 Predictor")
-analytics_btn = st.sidebar.button("📊 Analytics")
-
-if predictor_btn:
+if st.sidebar.button("🔮 Predictor"):
     st.session_state.page = "Predictor"
 
-if analytics_btn:
+if st.sidebar.button("📊 Analytics"):
     st.session_state.page = "Analytics"
 
-# Current page indicator
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"### 👉 Current: {st.session_state.page}")
+st.sidebar.markdown(f"👉 **Current:** {st.session_state.page}")
 st.sidebar.markdown("---")
 st.sidebar.success("✨ AI Powered System")
 
@@ -169,7 +167,7 @@ st.markdown(f"""
 <div class="info-box">
 <b>Model:</b> Random Forest Regressor<br>
 <b>Accuracy (R²):</b> {round(score,2)}<br>
-<b>Cities:</b> {data['City'].nunique()}
+<b>Cities Covered:</b> {data['City'].nunique()}
 </div>
 """, unsafe_allow_html=True)
 
@@ -180,17 +178,21 @@ st.markdown(f"""
 if page == "Predictor":
 
     st.subheader("📍 Select City")
-
     city = st.selectbox("City", sorted(data["City"].unique()))
 
-    st.subheader("🧪 Pollution Levels")
+    st.subheader("🧪 Enter Pollution Levels")
 
-    pm25 = st.number_input("PM2.5", 0.0, 1000.0, 50.0)
-    pm10 = st.number_input("PM10", 0.0, 1000.0, 80.0)
-    no2 = st.number_input("NO2", 0.0, 500.0, 20.0)
-    so2 = st.number_input("SO2", 0.0, 500.0, 10.0)
-    co = st.number_input("CO", 0.0, 10.0, 0.8)
-    o3 = st.number_input("O3", 0.0, 500.0, 30.0)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        pm25 = st.number_input("PM2.5", 0.0, 1000.0, 50.0)
+        pm10 = st.number_input("PM10", 0.0, 1000.0, 80.0)
+        no2 = st.number_input("NO2", 0.0, 500.0, 20.0)
+
+    with col2:
+        so2 = st.number_input("SO2", 0.0, 500.0, 10.0)
+        co = st.number_input("CO", 0.0, 10.0, 0.8)
+        o3 = st.number_input("O3", 0.0, 500.0, 30.0)
 
     if st.button("🚀 Predict AQI"):
 
@@ -203,12 +205,10 @@ if page == "Predictor":
 
         col1.metric("AQI", prediction)
 
-        col2.markdown(f"""
-        <div style="text-align:center; padding:15px; background:{color}; border-radius:10px;">
-        <h1>{emoji}</h1>
-        <b>{state}</b>
-        </div>
-        """, unsafe_allow_html=True)
+        col2.markdown(
+            f"<div class='badge' style='background:{color};color:black'>{emoji}<br>{state}</div>",
+            unsafe_allow_html=True
+        )
 
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
@@ -231,7 +231,7 @@ elif page == "Analytics":
     emoji, state, color = get_human_state(aqi_input)
 
     st.markdown(f"""
-    <div style="text-align:center; padding:20px; background:{color}; border-radius:12px;">
+    <div style="text-align:center; padding:20px; background:{color}; border-radius:14px;">
     <h1>{emoji}</h1>
     <b>{state}</b>
     </div>
