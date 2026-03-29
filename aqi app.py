@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
@@ -44,6 +45,21 @@ h1, h2, h3 { color: white; }
 """, unsafe_allow_html=True)
 
 # =====================================================
+# SIDEBAR
+# =====================================================
+
+st.sidebar.markdown("## 🌍 AI AQI App")
+st.sidebar.markdown("---")
+
+page = st.sidebar.radio(
+    "Navigation",
+    ["🔮 Predictor", "📊 Analytics"]
+)
+
+st.sidebar.markdown("---")
+st.sidebar.success("AI Powered AQI System")
+
+# =====================================================
 # HERO
 # =====================================================
 
@@ -53,8 +69,6 @@ st.markdown("""
 Predict Air Quality Index using machine learning and pollutant levels.
 </p>
 """, unsafe_allow_html=True)
-
-st.info("Model Used: Random Forest Regressor • Dataset: City AQI Data")
 
 # =====================================================
 # LOAD DATA
@@ -67,13 +81,10 @@ def load_data():
     df["Date"] = pd.to_datetime(df["Date"])
     return df
 
-with st.spinner("Loading data..."):
-    data = load_data()
-
-st.success(f"📍 Available Cities: {data['City'].nunique()}")
+data = load_data()
 
 # =====================================================
-# MODEL (REAL TRAIN/TEST SPLIT)
+# MODEL
 # =====================================================
 
 @st.cache_resource
@@ -98,10 +109,29 @@ def train_model(data):
 
     return model, score
 
-with st.spinner("Training model..."):
-    model, score = train_model(data)
+model, score = train_model(data)
 
-st.success(f"Model Accuracy (R² Score): {round(score, 2)}")
+# =====================================================
+# PREMIUM ML INFO BOX
+# =====================================================
+
+st.markdown(f"""
+<div style="
+    background: linear-gradient(135deg,#1e293b,#020617);
+    padding:20px;
+    border-radius:12px;
+    border:1px solid #334155;
+    margin-bottom:20px;
+">
+    <h4 style="color:#38bdf8;">⚙️ Model Information</h4>
+    <p style="color:#cbd5f5;">
+    • Model: Random Forest Regressor<br>
+    • Dataset: City AQI Data<br>
+    • Accuracy (R²): {round(score,2)}<br>
+    • Cities Covered: {data['City'].nunique()}
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 # =====================================================
 # HOW IT WORKS
@@ -125,17 +155,13 @@ This system helps individuals and authorities monitor air quality
 and take preventive actions to reduce health risks.
 """)
 
-# =====================================================
-# TABS
-# =====================================================
-
-tab1, tab2 = st.tabs(["🔮 Predictor", "📊 Analytics"])
+st.markdown("---")
 
 # =====================================================
 # PREDICTOR
 # =====================================================
 
-with tab1:
+if page == "🔮 Predictor":
 
     if "step" not in st.session_state:
         st.session_state.step = 1
@@ -149,7 +175,6 @@ with tab1:
         city = st.selectbox("City", sorted(data["City"].unique()))
         st.session_state.city = city
 
-        # Latest AQI
         latest = data[data["City"] == city].sort_values("Date").iloc[-1]
         st.metric("Latest AQI", round(latest["AQI"], 2))
 
@@ -161,7 +186,6 @@ with tab1:
 
         st.subheader("🧪 Enter Pollution Levels")
 
-        # AUTO-FILL BUTTON
         if st.button("Use Real Data"):
             city_data = data[data["City"] == st.session_state.city].iloc[-1]
             st.session_state.inputs = [
@@ -173,9 +197,9 @@ with tab1:
                 city_data["O3"]
             ]
 
-        col1, col2 = st.columns(2)
-
         defaults = st.session_state.get("inputs", [50,80,20,10,0.8,30])
+
+        col1, col2 = st.columns(2)
 
         with col1:
             pm25 = st.number_input("PM2.5", 0.0, 1000.0, float(defaults[0]))
@@ -191,15 +215,13 @@ with tab1:
 
         col1, col2 = st.columns(2)
 
-        with col1:
-            if st.button("← Back", use_container_width=True):
-                st.session_state.step = 1
-                st.rerun()
+        if col1.button("← Back", use_container_width=True):
+            st.session_state.step = 1
+            st.rerun()
 
-        with col2:
-            if st.button("🚀 Predict AQI", use_container_width=True):
-                st.session_state.step = 3
-                st.rerun()
+        if col2.button("🚀 Predict AQI", use_container_width=True):
+            st.session_state.step = 3
+            st.rerun()
 
     elif st.session_state.step == 3:
 
@@ -212,52 +234,45 @@ with tab1:
             co, so2, o3, 1, 2, 1
         ]])
 
-        with st.spinner("Predicting AQI..."):
-            try:
-                prediction = round(model.predict(input_data)[0], 2)
+        prediction = round(model.predict(input_data)[0], 2)
 
-                st.success("Prediction generated successfully!")
+        if prediction <= 50:
+            category, color = "Good", "#00e400"
+        elif prediction <= 100:
+            category, color = "Satisfactory", "#ffff00"
+        elif prediction <= 200:
+            category, color = "Moderate", "#ff7e00"
+        elif prediction <= 300:
+            category, color = "Poor", "#ff0000"
+        elif prediction <= 400:
+            category, color = "Very Poor", "#8f3f97"
+        else:
+            category, color = "Severe", "#7e0023"
 
-                if prediction <= 50:
-                    category, color = "Good", "#00e400"
-                elif prediction <= 100:
-                    category, color = "Satisfactory", "#ffff00"
-                elif prediction <= 200:
-                    category, color = "Moderate", "#ff7e00"
-                elif prediction <= 300:
-                    category, color = "Poor", "#ff0000"
-                elif prediction <= 400:
-                    category, color = "Very Poor", "#8f3f97"
-                else:
-                    category, color = "Severe", "#7e0023"
+        col1, col2 = st.columns(2)
 
-                col1, col2 = st.columns(2)
+        col1.metric("AQI", prediction)
+        col2.markdown(
+            f"<div class='badge' style='background:{color};color:black'>{category}</div>",
+            unsafe_allow_html=True
+        )
 
-                col1.metric("AQI", prediction)
-                col2.markdown(
-                    f"<div class='badge' style='background:{color};color:black'>{category}</div>",
-                    unsafe_allow_html=True
-                )
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=prediction,
+            gauge={'axis': {'range': [0, 500]}}
+        ))
 
-                fig = go.Figure(go.Indicator(
-                    mode="gauge+number",
-                    value=prediction,
-                    gauge={'axis': {'range': [0, 500]}}
-                ))
+        st.plotly_chart(fig, use_container_width=True)
 
-                st.plotly_chart(fig, use_container_width=True)
+        st.subheader("Health Advisory")
 
-                st.subheader("Health Advisory")
-
-                if prediction < 100:
-                    st.success("Air quality is acceptable.")
-                elif prediction < 200:
-                    st.warning("Sensitive individuals should limit outdoor activity.")
-                else:
-                    st.error("Avoid prolonged exposure.")
-
-            except:
-                st.error("Prediction failed.")
+        if prediction < 100:
+            st.success("Air quality is acceptable.")
+        elif prediction < 200:
+            st.warning("Sensitive individuals should limit outdoor activity.")
+        else:
+            st.error("Avoid prolonged exposure.")
 
         if st.button("Restart", use_container_width=True):
             st.session_state.step = 1
@@ -267,15 +282,50 @@ with tab1:
 # ANALYTICS
 # =====================================================
 
-with tab2:
+elif page == "📊 Analytics":
 
-    st.subheader("India AQI Pollution Heatmap")
+    st.subheader("🌍 India AQI Heatmap")
 
     city_avg = data.groupby("City")["AQI"].mean().reset_index()
 
-    st.dataframe(city_avg)
+    city_coords = {
+        "Delhi": (28.6139,77.2090),
+        "Mumbai": (19.0760,72.8777),
+        "Ahmedabad": (23.0225,72.5714),
+        "Bangalore": (12.9716,77.5946),
+        "Chennai": (13.0827,80.2707),
+        "Kolkata": (22.5726,88.3639),
+        "Hyderabad": (17.3850,78.4867),
+        "Pune": (18.5204,73.8567),
+        "Jaipur": (26.9124,75.7873),
+        "Lucknow": (26.8467,80.9462),
+        "Chandigarh": (30.7333,76.7794),
+        "Bhopal": (23.2599,77.4126),
+        "Patna": (25.5941,85.1376),
+        "Amaravati": (16.5062,80.6480)
+    }
 
-    st.subheader("Pollution Trend Analysis")
+    city_avg["lat"] = city_avg["City"].map(lambda x: city_coords.get(x, (None,None))[0])
+    city_avg["lon"] = city_avg["City"].map(lambda x: city_coords.get(x, (None,None))[1])
+    city_avg = city_avg.dropna()
+
+    fig = px.scatter_geo(
+        city_avg,
+        lat="lat",
+        lon="lon",
+        size="AQI",
+        color="AQI",
+        hover_name="City",
+        color_continuous_scale="Turbo",
+        projection="natural earth"
+    )
+
+    fig.update_layout(height=500)
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    st.subheader("📈 Pollution Trend")
 
     pollutant = st.selectbox("Select pollutant",
         ["PM2.5","PM10","NO2","SO2","CO","O3"])
@@ -284,10 +334,11 @@ with tab2:
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=trend.index, y=trend.values))
-
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Most Polluted Cities")
+    st.markdown("---")
+
+    st.subheader("🏆 Most Polluted Cities")
 
     leaderboard = (
         data.groupby("City")["AQI"]
