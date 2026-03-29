@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 st.set_page_config(page_title="AQI Predictor", layout="wide")
 
 # =====================================================
-# GLOBAL STYLES (FIXED SIDEBAR WIDTH)
+# GLOBAL STYLES
 # =====================================================
 
 st.markdown("""
@@ -27,18 +27,14 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid #1e293b;
 }
 
-/* Fix content shift */
 section[data-testid="stSidebar"] > div {
     width: 240px;
 }
 
-/* Main background */
 body { background: #020617; }
 
-/* Titles */
 h1, h2, h3 { color: white; }
 
-/* Sidebar buttons */
 div.stButton > button {
     width: 100%;
     background: linear-gradient(135deg,#0f172a,#020617);
@@ -57,7 +53,6 @@ div.stButton > button:hover {
     transform: scale(1.02);
 }
 
-/* Info card */
 .info-box {
     background: linear-gradient(135deg,#1e293b,#020617);
     padding:20px;
@@ -66,7 +61,6 @@ div.stButton > button:hover {
     margin-bottom:20px;
 }
 
-/* AQI badge */
 .badge {
     padding: 12px 18px;
     border-radius: 12px;
@@ -96,7 +90,7 @@ def get_human_state(aqi):
         return "🚑", "Emergency / ICU Risk", "#7f1d1d"
 
 # =====================================================
-# SIDEBAR (FIXED WIDTH NAV)
+# SIDEBAR
 # =====================================================
 
 st.sidebar.markdown("## 🌍 AI AQI App")
@@ -147,9 +141,12 @@ def train_model(data):
     X = data[features]
     y = data["AQI"]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    # TRAIN TEST SPLIT (IMPORTANT ADD)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-    model = RandomForestRegressor()
+    model = RandomForestRegressor(random_state=42)
     model.fit(X_train, y_train)
 
     score = r2_score(y_test, model.predict(X_test))
@@ -158,7 +155,7 @@ def train_model(data):
 model, score = train_model(data)
 
 # =====================================================
-# HEADER
+# HEADER (UPDATED BOX)
 # =====================================================
 
 st.title("🌍 AI Air Quality Predictor")
@@ -166,6 +163,9 @@ st.title("🌍 AI Air Quality Predictor")
 st.markdown(f"""
 <div class="info-box">
 <b>Model:</b> Random Forest Regressor<br>
+<b>Dataset:</b> City AQI Dataset<br>
+<b>Train-Test Split:</b> 80% Train / 20% Test<br>
+<b>Evaluation Method:</b> Hold-out Validation<br>
 <b>Accuracy (R²):</b> {round(score,2)}<br>
 <b>Cities Covered:</b> {data['City'].nunique()}
 </div>
