@@ -23,18 +23,6 @@ body { background: #020617; }
 
 .block-container { padding: 2rem; }
 
-.card {
-    background: linear-gradient(180deg,#0f172a,#020617);
-    padding: 30px;
-    border-radius: 18px;
-    border: 1px solid #1e293b;
-    margin-bottom: 20px;
-}
-
-h1, h2, h3 { color: white; }
-
-.subtitle { color: #94a3b8; }
-
 .badge {
     padding: 12px 18px;
     border-radius: 12px;
@@ -48,7 +36,6 @@ div.stButton > button {
     border-radius: 10px;
     color: white;
     font-weight: 600;
-    transition: 0.3s;
 }
 
 div.stButton > button:hover {
@@ -59,47 +46,39 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 # =====================================================
-# SIDEBAR (BUTTON NAVIGATION)
+# HUMAN STATE FUNCTION
 # =====================================================
 
-st.sidebar.markdown("## 🌍 AI AQI App")
-st.sidebar.markdown("---")
+def get_human_state(aqi):
+    if aqi <= 50:
+        return "😊", "Healthy", "#22c55e"
+    elif aqi <= 100:
+        return "🙂", "Slightly Affected", "#eab308"
+    elif aqi <= 200:
+        return "😷", "Mask Recommended", "#f97316"
+    elif aqi <= 300:
+        return "🤧", "Breathing Issues", "#ef4444"
+    elif aqi <= 400:
+        return "🫁", "Serious Condition", "#a855f7"
+    else:
+        return "🚑", "Emergency / ICU Risk", "#7f1d1d"
+
+# =====================================================
+# SIDEBAR
+# =====================================================
 
 if "page" not in st.session_state:
     st.session_state.page = "Predictor"
 
 col1, col2 = st.sidebar.columns(2)
 
-with col1:
-    if st.button("🔮 Predictor", use_container_width=True):
-        st.session_state.page = "Predictor"
+if col1.button("🔮 Predictor"):
+    st.session_state.page = "Predictor"
 
-with col2:
-    if st.button("📊 Analytics", use_container_width=True):
-        st.session_state.page = "Analytics"
-
-st.sidebar.markdown("---")
-
-if st.session_state.page == "Predictor":
-    st.sidebar.success("Currently: 🔮 Predictor")
-else:
-    st.sidebar.success("Currently: 📊 Analytics")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("✨ AI Powered AQI System")
+if col2.button("📊 Analytics"):
+    st.session_state.page = "Analytics"
 
 page = st.session_state.page
-
-# =====================================================
-# HERO
-# =====================================================
-
-st.markdown("""
-<h1>🌍 AI Air Quality Predictor</h1>
-<p class="subtitle">
-Predict Air Quality Index using machine learning and pollutant levels.
-</p>
-""", unsafe_allow_html=True)
 
 # =====================================================
 # LOAD DATA
@@ -120,7 +99,6 @@ data = load_data()
 
 @st.cache_resource
 def train_model(data):
-
     features = [
         "PM2.5","PM10","NO","NO2","NOx",
         "NH3","CO","SO2","O3","Benzene",
@@ -135,33 +113,17 @@ def train_model(data):
     model = RandomForestRegressor()
     model.fit(X_train, y_train)
 
-    y_pred = model.predict(X_test)
-    score = r2_score(y_test, y_pred)
-
+    score = r2_score(y_test, model.predict(X_test))
     return model, score
 
 model, score = train_model(data)
 
 # =====================================================
-# INFO BOX
+# HEADER
 # =====================================================
 
-st.markdown(f"""
-<div style="
-    background: linear-gradient(135deg,#1e293b,#020617);
-    padding:20px;
-    border-radius:12px;
-    border:1px solid #334155;
-    margin-bottom:20px;
-">
-    <h4 style="color:#38bdf8;">⚙️ Model Information</h4>
-    <p style="color:#cbd5f5;">
-    • Model: Random Forest Regressor<br>
-    • Accuracy (R²): {round(score,2)}<br>
-    • Cities Covered: {data['City'].nunique()}
-    </p>
-</div>
-""", unsafe_allow_html=True)
+st.title("🌍 AI Air Quality Predictor")
+st.caption(f"Model Accuracy (R²): {round(score,2)}")
 
 # =====================================================
 # PREDICTOR
@@ -169,99 +131,35 @@ st.markdown(f"""
 
 if page == "Predictor":
 
-    if "step" not in st.session_state:
-        st.session_state.step = 1
+    st.subheader("📍 Select City")
+    city = st.selectbox("City", sorted(data["City"].unique()))
 
-    st.progress(st.session_state.step / 3)
+    st.subheader("🧪 Enter Pollution Levels")
 
-    if st.session_state.step == 1:
+    pm25 = st.number_input("PM2.5", 0.0, 1000.0, 50.0)
+    pm10 = st.number_input("PM10", 0.0, 1000.0, 80.0)
+    no2 = st.number_input("NO2", 0.0, 500.0, 20.0)
+    so2 = st.number_input("SO2", 0.0, 500.0, 10.0)
+    co = st.number_input("CO", 0.0, 10.0, 0.8)
+    o3 = st.number_input("O3", 0.0, 500.0, 30.0)
 
-        st.subheader("📍 Select Location")
+    if st.button("🚀 Predict AQI"):
 
-        city = st.selectbox("City", sorted(data["City"].unique()))
-        st.session_state.city = city
-
-        latest = data[data["City"] == city].sort_values("Date").iloc[-1]
-        st.metric("Latest AQI", round(latest["AQI"], 2))
-
-        if st.button("Next →", use_container_width=True):
-            st.session_state.step = 2
-            st.rerun()
-
-    elif st.session_state.step == 2:
-
-        st.subheader("🧪 Enter Pollution Levels")
-
-        if st.button("Use Real Data"):
-            city_data = data[data["City"] == st.session_state.city].iloc[-1]
-            st.session_state.inputs = [
-                city_data["PM2.5"],
-                city_data["PM10"],
-                city_data["NO2"],
-                city_data["SO2"],
-                city_data["CO"],
-                city_data["O3"]
-            ]
-
-        defaults = st.session_state.get("inputs", [50,80,20,10,0.8,30])
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            pm25 = st.number_input("PM2.5", 0.0, 1000.0, float(defaults[0]))
-            pm10 = st.number_input("PM10", 0.0, 1000.0, float(defaults[1]))
-            no2 = st.number_input("NO2", 0.0, 500.0, float(defaults[2]))
-
-        with col2:
-            so2 = st.number_input("SO2", 0.0, 500.0, float(defaults[3]))
-            co = st.number_input("CO", 0.0, 10.0, float(defaults[4]))
-            o3 = st.number_input("O3", 0.0, 500.0, float(defaults[5]))
-
-        st.session_state.inputs = [pm25, pm10, no2, so2, co, o3]
-
-        col1, col2 = st.columns(2)
-
-        if col1.button("← Back", use_container_width=True):
-            st.session_state.step = 1
-            st.rerun()
-
-        if col2.button("🚀 Predict AQI", use_container_width=True):
-            st.session_state.step = 3
-            st.rerun()
-
-    elif st.session_state.step == 3:
-
-        st.subheader("📊 AQI Prediction")
-
-        pm25, pm10, no2, so2, co, o3 = st.session_state.inputs
-
-        input_data = np.array([[
-            pm25, pm10, 10, no2, 20, 5,
-            co, so2, o3, 1, 2, 1
-        ]])
-
+        input_data = np.array([[pm25, pm10, 10, no2, 20, 5, co, so2, o3, 1, 2, 1]])
         prediction = round(model.predict(input_data)[0], 2)
 
-        if prediction <= 50:
-            category, color = "Good", "#00e400"
-        elif prediction <= 100:
-            category, color = "Satisfactory", "#ffff00"
-        elif prediction <= 200:
-            category, color = "Moderate", "#ff7e00"
-        elif prediction <= 300:
-            category, color = "Poor", "#ff0000"
-        elif prediction <= 400:
-            category, color = "Very Poor", "#8f3f97"
-        else:
-            category, color = "Severe", "#7e0023"
+        emoji, state, color = get_human_state(prediction)
 
         col1, col2 = st.columns(2)
 
         col1.metric("AQI", prediction)
-        col2.markdown(
-            f"<div class='badge' style='background:{color};color:black'>{category}</div>",
-            unsafe_allow_html=True
-        )
+
+        col2.markdown(f"""
+        <div style="text-align:center; padding:15px; background:{color}; border-radius:10px;">
+        <h1>{emoji}</h1>
+        <b>{state}</b>
+        </div>
+        """, unsafe_allow_html=True)
 
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
@@ -271,46 +169,24 @@ if page == "Predictor":
 
         st.plotly_chart(fig, use_container_width=True)
 
-        if st.button("Restart", use_container_width=True):
-            st.session_state.step = 1
-            st.rerun()
-
 # =====================================================
 # ANALYTICS
 # =====================================================
 
 elif page == "Analytics":
 
-    st.subheader("🌍 India AQI Heatmap")
+    st.subheader("👤 Human Impact Analyzer")
 
-    city_avg = data.groupby("City")["AQI"].mean().reset_index()
+    aqi_input = st.slider("AQI Level", 0, 500, 100)
 
-    city_coords = {
-        "Delhi": (28.61,77.20),
-        "Mumbai": (19.07,72.87),
-        "Ahmedabad": (23.02,72.57),
-        "Bangalore": (12.97,77.59),
-        "Chennai": (13.08,80.27),
-        "Kolkata": (22.57,88.36),
-        "Hyderabad": (17.38,78.48),
-        "Pune": (18.52,73.85)
-    }
+    emoji, state, color = get_human_state(aqi_input)
 
-    city_avg["lat"] = city_avg["City"].map(lambda x: city_coords.get(x,(None,None))[0])
-    city_avg["lon"] = city_avg["City"].map(lambda x: city_coords.get(x,(None,None))[1])
-    city_avg = city_avg.dropna()
-
-    fig = px.scatter_geo(
-        city_avg,
-        lat="lat",
-        lon="lon",
-        size="AQI",
-        color="AQI",
-        hover_name="City",
-        color_continuous_scale="Turbo"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+    st.markdown(f"""
+    <div style="text-align:center; padding:20px; background:{color}; border-radius:12px;">
+    <h1>{emoji}</h1>
+    <b>{state}</b>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.subheader("📈 Trend")
 
@@ -322,18 +198,6 @@ elif page == "Analytics":
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=trend.index, y=trend.values))
     st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("🏆 Most Polluted Cities")
-
-    leaderboard = (
-        data.groupby("City")["AQI"]
-        .mean()
-        .sort_values(ascending=False)
-        .head(10)
-        .reset_index()
-    )
-
-    st.dataframe(leaderboard, use_container_width=True)
 
 # =====================================================
 # FOOTER
