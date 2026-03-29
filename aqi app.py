@@ -41,23 +41,54 @@ h1, h2, h3 { color: white; }
     font-weight: bold;
     display: inline-block;
 }
+
+div.stButton > button {
+    background: linear-gradient(135deg,#1e293b,#020617);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+div.stButton > button:hover {
+    background: #0ea5e9;
+    color: black;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# SIDEBAR
+# SIDEBAR (BUTTON NAVIGATION)
 # =====================================================
 
 st.sidebar.markdown("## 🌍 AI AQI App")
 st.sidebar.markdown("---")
 
-page = st.sidebar.radio(
-    "Navigation",
-    ["🔮 Predictor", "📊 Analytics"]
-)
+if "page" not in st.session_state:
+    st.session_state.page = "Predictor"
+
+col1, col2 = st.sidebar.columns(2)
+
+with col1:
+    if st.button("🔮 Predictor", use_container_width=True):
+        st.session_state.page = "Predictor"
+
+with col2:
+    if st.button("📊 Analytics", use_container_width=True):
+        st.session_state.page = "Analytics"
 
 st.sidebar.markdown("---")
-st.sidebar.success("AI Powered AQI System")
+
+if st.session_state.page == "Predictor":
+    st.sidebar.success("Currently: 🔮 Predictor")
+else:
+    st.sidebar.success("Currently: 📊 Analytics")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("✨ AI Powered AQI System")
+
+page = st.session_state.page
 
 # =====================================================
 # HERO
@@ -112,7 +143,7 @@ def train_model(data):
 model, score = train_model(data)
 
 # =====================================================
-# PREMIUM ML INFO BOX
+# INFO BOX
 # =====================================================
 
 st.markdown(f"""
@@ -126,7 +157,6 @@ st.markdown(f"""
     <h4 style="color:#38bdf8;">⚙️ Model Information</h4>
     <p style="color:#cbd5f5;">
     • Model: Random Forest Regressor<br>
-    • Dataset: City AQI Data<br>
     • Accuracy (R²): {round(score,2)}<br>
     • Cities Covered: {data['City'].nunique()}
     </p>
@@ -134,34 +164,10 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# HOW IT WORKS
-# =====================================================
-
-st.markdown("### ⚙️ How it Works")
-st.write("""
-- Uses Random Forest Regressor  
-- Trained on historical AQI dataset  
-- Predicts AQI based on pollutant levels  
-- Provides health advisory based on predicted AQI  
-""")
-
-# =====================================================
-# IMPACT
-# =====================================================
-
-st.markdown("### 🌍 Impact")
-st.write("""
-This system helps individuals and authorities monitor air quality 
-and take preventive actions to reduce health risks.
-""")
-
-st.markdown("---")
-
-# =====================================================
 # PREDICTOR
 # =====================================================
 
-if page == "🔮 Predictor":
+if page == "Predictor":
 
     if "step" not in st.session_state:
         st.session_state.step = 1
@@ -265,15 +271,6 @@ if page == "🔮 Predictor":
 
         st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader("Health Advisory")
-
-        if prediction < 100:
-            st.success("Air quality is acceptable.")
-        elif prediction < 200:
-            st.warning("Sensitive individuals should limit outdoor activity.")
-        else:
-            st.error("Avoid prolonged exposure.")
-
         if st.button("Restart", use_container_width=True):
             st.session_state.step = 1
             st.rerun()
@@ -282,31 +279,25 @@ if page == "🔮 Predictor":
 # ANALYTICS
 # =====================================================
 
-elif page == "📊 Analytics":
+elif page == "Analytics":
 
     st.subheader("🌍 India AQI Heatmap")
 
     city_avg = data.groupby("City")["AQI"].mean().reset_index()
 
     city_coords = {
-        "Delhi": (28.6139,77.2090),
-        "Mumbai": (19.0760,72.8777),
-        "Ahmedabad": (23.0225,72.5714),
-        "Bangalore": (12.9716,77.5946),
-        "Chennai": (13.0827,80.2707),
-        "Kolkata": (22.5726,88.3639),
-        "Hyderabad": (17.3850,78.4867),
-        "Pune": (18.5204,73.8567),
-        "Jaipur": (26.9124,75.7873),
-        "Lucknow": (26.8467,80.9462),
-        "Chandigarh": (30.7333,76.7794),
-        "Bhopal": (23.2599,77.4126),
-        "Patna": (25.5941,85.1376),
-        "Amaravati": (16.5062,80.6480)
+        "Delhi": (28.61,77.20),
+        "Mumbai": (19.07,72.87),
+        "Ahmedabad": (23.02,72.57),
+        "Bangalore": (12.97,77.59),
+        "Chennai": (13.08,80.27),
+        "Kolkata": (22.57,88.36),
+        "Hyderabad": (17.38,78.48),
+        "Pune": (18.52,73.85)
     }
 
-    city_avg["lat"] = city_avg["City"].map(lambda x: city_coords.get(x, (None,None))[0])
-    city_avg["lon"] = city_avg["City"].map(lambda x: city_coords.get(x, (None,None))[1])
+    city_avg["lat"] = city_avg["City"].map(lambda x: city_coords.get(x,(None,None))[0])
+    city_avg["lon"] = city_avg["City"].map(lambda x: city_coords.get(x,(None,None))[1])
     city_avg = city_avg.dropna()
 
     fig = px.scatter_geo(
@@ -316,18 +307,14 @@ elif page == "📊 Analytics":
         size="AQI",
         color="AQI",
         hover_name="City",
-        color_continuous_scale="Turbo",
-        projection="natural earth"
+        color_continuous_scale="Turbo"
     )
 
-    fig.update_layout(height=500)
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("---")
+    st.subheader("📈 Trend")
 
-    st.subheader("📈 Pollution Trend")
-
-    pollutant = st.selectbox("Select pollutant",
+    pollutant = st.selectbox("Pollutant",
         ["PM2.5","PM10","NO2","SO2","CO","O3"])
 
     trend = data.groupby("Date")[pollutant].mean()
@@ -335,8 +322,6 @@ elif page == "📊 Analytics":
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=trend.index, y=trend.values))
     st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
 
     st.subheader("🏆 Most Polluted Cities")
 
